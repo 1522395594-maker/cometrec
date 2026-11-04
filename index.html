@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CometRec · AI 录音卡片 · 朱春兮 Comet</title>
+<meta name="description" content="CometRec：一张贴在手机背面的 AI 录音卡片。可交互 3D 模型、配色与离线渲染。">
+<!-- 字体：Doto（点阵）、Space Grotesk（正文）、Space Mono（标签） -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Doto:wght@400;700&family=Space+Grotesk:wght@300;400;500&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#E4E3DF;--ink:#1A1A1A;--mid:#6B6B68;--faint:#B0B0AB;--red:#D71921;
+        --body:"Space Grotesk",system-ui,sans-serif;--mono:"Space Mono",monospace;--dot:"Doto","Space Mono",monospace}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{background:#E4E3DF;color:var(--ink);font-family:var(--body)}
+  .label{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--mid)}
+
+  /* ---------- 第一屏：可交互模型 ---------- */
+  #hero{position:relative;height:100vh;min-height:560px;overflow:hidden;background:var(--bg);color:var(--ink);transition:background .4s}
+  #hero.dark{--ink:#E8E8E8;--mid:#8A8A8A;--faint:#333}
+  /* 莫奈款：背景是整幅画，文字和控件放在米白色底板上，保证可读 */
+  #hero.art .tl, #hero.art .ctrl, #hero.art .bl, #hero.art #legend{background:rgba(244,241,232,.9);padding:16px 18px;border-radius:12px;margin:-16px -18px}
+  #hero.art .ctrl{width:286px}
+  #hero.art .more{background:rgba(244,241,232,.9);border-radius:999px}
+  #stage{position:absolute;inset:0}
+  .tl{position:absolute;left:40px;top:36px;pointer-events:none;z-index:2}
+  .tl h1{font-family:var(--dot);font-weight:700;font-size:56px;line-height:1;margin-top:12px;letter-spacing:-.02em}
+  .tl p{max-width:340px;margin-top:14px;font-size:14px;color:var(--mid);line-height:1.5;transition:opacity .2s}
+  .bl{position:absolute;left:40px;bottom:32px;display:flex;align-items:flex-end;gap:14px;pointer-events:none;z-index:2}
+  .bl .no{font-family:var(--mono);font-size:44px;line-height:.9}
+  .bl .d{font-family:var(--mono);font-size:11px;line-height:1.4;color:var(--mid);border-left:1px solid var(--mid);padding-left:10px}
+  .more{position:absolute;right:40px;bottom:32px;z-index:3;font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--ink);text-decoration:none;border:1px solid var(--ink);border-radius:999px;padding:7px 14px}
+  .ctrl{position:absolute;right:40px;top:36px;width:250px;display:flex;flex-direction:column;gap:18px;z-index:3}
+  .seg{display:flex;border:1px solid var(--ink);border-radius:999px;overflow:hidden}
+  .seg button{flex:1;background:none;border:none;color:var(--ink);font-family:var(--mono);font-size:11px;letter-spacing:.06em;padding:7px 0;cursor:pointer}
+  .seg button.on{background:var(--ink);color:var(--bg)}
+  input[type=range]{width:100%;accent-color:var(--ink)}
+  .row{display:flex;justify-content:space-between;align-items:center}
+  .pill{background:none;border:1px solid var(--ink);color:var(--ink);border-radius:999px;font-family:var(--mono);font-size:11px;letter-spacing:.06em;padding:7px 14px;cursor:pointer;text-decoration:none}
+  .pill.rec{border-color:var(--red);color:var(--red)}
+  .chips{display:flex;gap:8px;margin-top:8px}
+  .chips button{width:24px;height:24px;border-radius:50%;border:1px solid rgba(0,0,0,.25);cursor:pointer;padding:0}
+  .chips button.on{outline:1px solid var(--ink);outline-offset:3px}
+  /* 爆炸标注：零件上一个编号圆点 + 左侧清单 */
+  .badge{position:absolute;z-index:2;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;background:var(--ink);color:var(--bg);
+         font-family:var(--mono);font-size:9px;line-height:18px;text-align:center;pointer-events:none;opacity:0}
+  #legend{position:absolute;left:40px;z-index:2;pointer-events:none;opacity:0}
+  .lg{display:flex;gap:10px;align-items:baseline;font-family:var(--mono);font-size:11px;letter-spacing:.04em;white-space:nowrap;padding:4px 0}
+  .lg b{display:inline-block;width:18px;height:18px;border-radius:50%;background:var(--ink);color:var(--bg);font-size:9px;line-height:18px;text-align:center;font-weight:400;flex:none}
+  .lg span{color:var(--mid)}
+  .lgsum{font-family:var(--mono);font-size:11px;color:var(--mid);border-top:1px solid var(--ink);padding-top:6px;margin-top:6px;white-space:nowrap}
+  @media (max-width:1100px){ .lg span.note{display:none} }
+  #hint{position:absolute;pointer-events:none;z-index:2;font-family:var(--mono);font-size:12px;letter-spacing:.04em;color:var(--ink);transition:opacity .3s}
+  #hint svg{display:block;margin-top:4px}
+  #hint path{fill:none;stroke:var(--ink);stroke-width:1.2;stroke-linecap:round}
+
+  /* ---------- 离线渲染 ---------- */
+  section.page{max-width:1240px;margin:0 auto;padding:120px 40px 0}
+  section.page h2{font-size:32px;font-weight:400;margin-top:10px;letter-spacing:-.01em}
+  section.page .lede{max-width:640px;margin-top:16px;color:#3a3a38;line-height:1.6;font-size:15px}
+  .gallery{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:48px}
+  .gallery figure.wide{grid-column:1 / -1}
+  .gallery img{display:block;width:100%;height:auto;border-radius:4px;background:#cfcfcb}
+  .gallery figcaption{display:flex;gap:16px;margin-top:12px;font-size:14px;color:#3a3a38;line-height:1.5}
+  .gallery figcaption .label{flex:none;padding-top:2px}
+  /* ---------- BOM ---------- */
+  .bar-stack{display:flex;height:28px;margin-top:40px;gap:2px}
+  .bar-stack span{display:block;height:100%;background:var(--ink)}
+  .bar-key{display:flex;flex-wrap:wrap;gap:8px 20px;margin-top:12px}
+  .bom-t{width:100%;border-collapse:collapse;margin-top:40px;font-size:14px}
+  .bom-t th{text-align:left;font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--mid);font-weight:400;padding:8px 16px 8px 0;border-bottom:1px solid var(--ink)}
+  .bom-t td{padding:12px 16px 12px 0;border-bottom:1px solid var(--faint);vertical-align:top;line-height:1.5}
+  .bom-t td.n{font-family:var(--mono);width:36px;color:var(--mid)}
+  .bom-t td.k{width:150px;font-weight:500}
+  .bom-t td.v{font-family:var(--mono);text-align:right;white-space:nowrap;width:80px}
+  .bom-t td.p{font-family:var(--mono);text-align:right;color:var(--mid);width:56px}
+  .bom-t td.s{color:#3a3a38}
+  .bom-t td.src{color:var(--mid);font-size:13px;width:260px}
+  .bom-t tr.sub td{border-bottom:1px solid var(--ink);font-weight:500}
+  .bom-t tr.tot td{border-bottom:none;font-weight:500;font-size:16px}
+  .bom-t .red{color:var(--red)}
+  .bom-sum{display:grid;grid-template-columns:repeat(4,1fr);gap:24px;margin-top:48px}
+  .bom-sum .v{font-family:var(--mono);font-size:32px;margin-top:6px}
+  .bom-sum p{font-size:13px;color:var(--mid);margin-top:4px;line-height:1.5}
+  footer{max-width:1240px;margin:0 auto;padding:120px 40px 64px}
+  footer .bar{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--ink);padding-top:20px;flex-wrap:wrap;gap:16px}
+
+  /* 离线渲染模式：只留画布 */
+  body.pt #hero > :not(#stage), body.pt section.page, body.pt footer{display:none!important}
+</style>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}
+</script>
+</head>
+<body>
+
+<section id="hero">
+  <div id="stage"></div>
+  <div id="badges"></div>
+  <div id="legend"></div>
+
+  <div class="tl">
+    <div class="label">AI 录音卡片 · 概念设计 · 朱春兮 Comet</div>
+    <h1>COMETREC</h1>
+    <p id="lede">一张贴在手机背面的 AI 录音卡片。透明外壳里能看到它的结构。拖动旋转；点侧面拨杆开始/停止录音，点 MARK 打标记，按住正面圆盘提问。</p>
+  </div>
+
+  <div id="hint"><div id="hintText">双击试试看</div>
+    <svg width="90" height="46" viewBox="0 0 90 46"><path d="M4,4 C30,6 60,14 84,38"/><path d="M84,38 L73,35 M84,38 L82,27"/></svg>
+  </div>
+
+  <div class="ctrl">
+    <div>
+      <div class="label">配色</div>
+      <div class="chips" id="chips"></div>
+    </div>
+    <div>
+      <div class="label">视角</div>
+      <div class="seg" id="views" style="margin-top:8px">
+        <button data-v="hero" class="on">3/4</button><button data-v="front">正面</button><button data-v="side">侧面</button><button data-v="back">背面</button>
+      </div>
+    </div>
+    <div>
+      <div class="row"><span class="label">爆炸 · 也可双击模型</span><span class="label" id="exv">0%</span></div>
+      <input type="range" id="explode" min="0" max="100" value="0" style="margin-top:8px">
+    </div>
+    <div class="row">
+      <button class="pill rec" id="recBtn">● REC ON</button>
+      <button class="pill" id="markBtn">MARK</button>
+      <button class="pill" id="shotBtn">导出 PNG</button>
+    </div>
+    <div class="row"><span class="label" id="cwName">WHITE</span><span class="label" id="status">[LOADING...]</span></div>
+  </div>
+
+  <div class="bl"><div class="no">01</div><div class="d">NOV<br>2026</div></div>
+  <a class="more" href="#renders">↓ 离线渲染</a>
+</section>
+
+<section class="page" id="renders">
+  <div class="label">离线渲染 · 256 帧累积</div>
+  <h2>透明、金属、颜色</h2>
+  <figure style="margin-top:40px"><img src="renders/00-drama.jpg" alt="CometRec 主视觉" style="display:block;width:100%;height:auto;border-radius:4px"></figure>
+  <p class="lede">参考 Nothing 的透明结构外露和徕芬的阳极氧化色彩：外框是一整圈软圆角的金属，正反面是透明 PC 窗，里面是一块印着信息的内衬板。下面这些图和上面的交互模型是同一份几何体和材质，用多帧累积的方式离线渲染（面光阴影 + 超采样）。</p>
+  <div class="gallery">
+    <figure class="wide"><img src="renders/01-hero.jpg" alt="CometRec 糖果色"><figcaption><span class="label">01</span>糖果色：Mint、Lilac、Sky。圆盘和挂绳撞色——薄荷配淡黄、淡紫配白、天蓝配嫩粉。</figcaption></figure>
+    <figure class="wide"><img src="renders/02-lineup.jpg" alt="CometRec 六种配色"><figcaption><span class="label">02</span>七种配色：Mint、Lilac、Sky、White、Black、Orange（钛金属）、Monet 定制款。</figcaption></figure>
+    <figure><img src="renders/03-orange.jpg" alt="CometRec 橙色"><figcaption><span class="label">03</span>Orange。钛合金阳极氧化，同色背景、同色挂绳。</figcaption></figure>
+    <figure><img src="renders/04-monet.jpg" alt="CometRec 莫奈定制款"><figcaption><span class="label">04</span>Monet 定制款。外框从天蓝、海青渐变到草地的粉绿，ASK 圆盘和挂绳取画中花丛的粉色。</figcaption></figure>
+    <figure><img src="renders/07-monet-back.jpg" alt="CometRec 莫奈定制款背面"><figcaption><span class="label">05</span>Monet 定制款背面：背衬印着莫奈《普尔维尔的悬崖散步》（1882），透过背面透明窗看到整幅画。</figcaption></figure>
+    <figure><img src="renders/05-back.jpg" alt="CometRec 背面"><figcaption><span class="label">06</span>背面：透明窗下的背衬比外框浅一号，印着字标和规格，中间是银色无线充电线圈。</figcaption></figure>
+    <figure><img src="renders/06-explode.jpg" alt="CometRec 爆炸图"><figcaption><span class="label">07</span>爆炸图：9 组零件，约 55 g（工程估算）。</figcaption></figure>
+  </div>
+</section>
+
+<section class="page" id="bom">
+  <div class="label">BOM 成本 · 按爆炸图 9 组零件 · 工程估算</div>
+  <h2>一台大约 ¥200 的物料</h2>
+  <p class="lede">按年产 1 万台、人民币含税单价估算，编号对应上面爆炸图的零件。价格来自公开的元器件报价和同类产品的拆解经验，是立项阶段的量级判断，不是供应商报价；真正下单前要拿 3 家报价核对。</p>
+
+  <div class="bar-stack" id="bomBar"></div>
+  <div class="bar-key label" id="bomKey"></div>
+
+  <table class="bom-t">
+    <tr><th>#</th><th>零件</th><th>规格 / 工艺</th><th style="text-align:right">单价</th><th style="text-align:right">占比</th><th>估算依据</th></tr>
+    <tr><td class="n">01</td><td class="k">背面透明窗</td><td class="s">PC 0.8 mm，CNC 切边 + 抗指纹镀膜</td><td class="v">¥2.0</td><td class="p"></td><td class="src">小尺寸 PC 盖板，开模后单价 1.5–2.5 元</td></tr>
+    <tr><td class="n">02</td><td class="k">背衬 + 线圈</td><td class="s">PC 印刷背衬 ¥1.5 · 无线充电线圈 ¥4 · 磁吸磁环 ¥8 · 接触式麦克风 ¥6</td><td class="v">¥19.5</td><td class="p"></td><td class="src">磁环按 MagSafe 兼容 N52 弧形磁铁组；接触式麦克风按骨传导传感器</td></tr>
+    <tr><td class="n">03</td><td class="k">电池</td><td class="s">400 mAh 软包锂电 + 保护板，定制尺寸</td><td class="v">¥8.0</td><td class="p"></td><td class="src">小容量软包电芯 6–10 元，含保护板</td></tr>
+    <tr><td class="n">04</td><td class="k">外框</td><td class="s">铝 6063 CNC + 阳极氧化 ¥40 · 侧键 2 颗 ¥3</td><td class="v">¥43.0</td><td class="p"></td><td class="src">卡片大小 CNC 铝框 30–50 元；莫奈款渐变阳极氧化另加约 ¥10</td></tr>
+    <tr><td class="n">05</td><td class="k red">主板 PCBA</td><td class="s">音频 SoC（BLE + Wi-Fi）¥18 · 64 GB 存储 ¥28 · MEMS 麦克风 ×3 ¥4.5 · 电源与充电 ¥4 · 无线充电接收 ¥5 · 线性马达 ¥3 · USB-C ¥1 · 6 层板 + 贴片 ¥15</td><td class="v">¥78.5</td><td class="p"></td><td class="src">最大头是存储；64 GB 参照同类录音卡片的配置，降到 32 GB 可省约 ¥12</td></tr>
+    <tr><td class="n">06</td><td class="k">墨水屏</td><td class="s">2.4 寸 E-paper 模组，无前光</td><td class="v">¥22.0</td><td class="p"></td><td class="src">2.1–2.9 寸黑白墨水屏模组批量 18–30 元</td></tr>
+    <tr><td class="n">07</td><td class="k">内衬板</td><td class="s">PC 印刷内衬 + 红色指示灯 + 装饰螺丝</td><td class="v">¥2.5</td><td class="p"></td><td class="src">丝印件 + 贴片 LED</td></tr>
+    <tr><td class="n">08</td><td class="k">正面透明窗</td><td class="s">PC 0.6 mm，圆孔加工 + 抗指纹镀膜</td><td class="v">¥3.0</td><td class="p"></td><td class="src">比背面多一个圆孔工序</td></tr>
+    <tr><td class="n">09</td><td class="k">ASK 圆盘</td><td class="s">铝车削 + 阳极氧化 + 锅仔片</td><td class="v">¥5.0</td><td class="p"></td><td class="src">小型车削件 3–6 元</td></tr>
+    <tr><td class="n"></td><td class="k">其他</td><td class="s">螺丝、背胶、泡棉、排线 ¥6 · 挂绳 ¥3</td><td class="v">¥9.0</td><td class="p"></td><td class="src">辅料按物料 3–5% 估</td></tr>
+    <tr class="sub"><td></td><td class="k">物料小计</td><td></td><td class="v" id="bomSub"></td><td class="p">100%</td><td></td></tr>
+    <tr><td></td><td class="k">组装测试</td><td class="s">SMT 之外的整机组装、射频与音频测试</td><td class="v">¥12.0</td><td></td><td class="src">小件整机 10–15 元</td></tr>
+    <tr><td></td><td class="k">包装</td><td class="s">纸盒、说明书、USB-C 线</td><td class="v">¥8.0</td><td></td><td class="src"></td></tr>
+    <tr><td></td><td class="k">良率损耗</td><td class="s">按 3% 计</td><td class="v" id="bomLoss"></td><td></td><td class="src"></td></tr>
+    <tr class="tot"><td></td><td class="k">单台出厂成本</td><td></td><td class="v" id="bomTot"></td><td></td><td></td></tr>
+  </table>
+
+  <div class="bom-sum">
+    <div><div class="label">物料</div><div class="v" id="sumMat"></div><p>9 组零件 + 辅料</p></div>
+    <div><div class="label">出厂成本</div><div class="v" id="sumTot"></div><p>含组装、包装、损耗</p></div>
+    <div><div class="label">一次性开模</div><div class="v">≈ ¥15 万</div><p>透明窗、背衬、内衬模具与治具；CNC 外框不需开模</p></div>
+    <div><div class="label">定价参考</div><div class="v" id="sumPrice"></div><p>消费硬件常见 3–4 倍出厂成本</p></div>
+  </div>
+</section>
+
+<footer>
+  <div class="bar">
+    <div><div class="label">CometRec · 概念设计与交互模型</div><div style="margin-top:6px">朱春兮 Comet · 2026</div></div>
+    <div><a class="pill" id="dlBtn" href="cometrec.html" download>下载离线版 HTML</a></div>
+  </div>
+</footer>
+
+<script>
+addEventListener('DOMContentLoaded', () => {
+  const rows = [...document.querySelectorAll('#bom .bom-t tr')].filter(r => r.querySelector('td.p') && r.querySelector('td.v') && !r.classList.contains('sub'));
+  const val = r => parseFloat(r.querySelector('td.v').textContent.replace('¥', ''));
+  const sub = rows.reduce((a, r) => a + val(r), 0);
+  const fmt = v => '¥' + v.toFixed(1);
+  const bar = document.getElementById('bomBar'), key = document.getElementById('bomKey');
+  rows.forEach((r, i) => {
+    const v = val(r), pct = v / sub * 100;
+    r.querySelector('td.p').textContent = pct.toFixed(0) + '%';
+    const seg = document.createElement('span'); seg.style.flex = v;
+    seg.style.opacity = r.querySelector('.red') ? 1 : 0.18 + 0.6 * (v / 80);
+    if (r.querySelector('.red')) seg.style.background = 'var(--red)';
+    seg.title = r.querySelector('td.k').textContent + ' ' + fmt(v); bar.appendChild(seg);
+    if (pct >= 8) { const k = document.createElement('span'); k.textContent = `${r.querySelector('td.n').textContent || '··'} ${r.querySelector('td.k').textContent} ${pct.toFixed(0)}%`; key.appendChild(k); }
+  });
+  const loss = (sub + 12 + 8) * 0.03, tot = sub + 12 + 8 + loss;
+  document.getElementById('bomSub').textContent = fmt(sub);
+  document.getElementById('bomLoss').textContent = fmt(loss);
+  document.getElementById('bomTot').textContent = fmt(tot);
+  document.getElementById('sumMat').textContent = '¥' + Math.round(sub);
+  document.getElementById('sumTot').textContent = '¥' + Math.round(tot);
+  document.getElementById('sumPrice').textContent = '¥' + Math.round(tot * 3 / 100) * 100 + '–' + Math.round(tot * 4 / 100) * 100;
+});
+</script>
+<script src="assets/monet.js"></script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const q = new URLSearchParams(location.search);
+const PT = q.get('pt');                 // 离线渲染模式：?pt=hero|lineup|orange|monet|monetBack|back|explode
+if (PT) document.body.classList.add('pt');
+
+// ---------- 场景 ----------
+const hero = document.getElementById('hero'), stage = document.getElementById('stage');
+const W = () => hero.clientWidth, H = () => hero.clientHeight;
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(PT ? 1 : Math.min(devicePixelRatio, 2));
+renderer.setSize(W(), H());
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+stage.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xE4E3DF);
+
+// 棚拍环境（HDR 等距柱状图）：灰色暗房 + 顶部柔光箱 + 左右灯条 + 地面反光
+function studioHDR() {
+  const w = 1024, h = 512, data = new Float32Array(w * h * 4);
+  const lamps = [[128, 55, 60, 22, 10], [163, 5, 8, 50, 14], [-31, 0, 6, 45, 9], [0, -70, 180, 20, 0.5], [73, 12, 25, 20, 1.2], [-120, 30, 30, 15, 4]];
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const az = (x + 0.5) / w * 360 - 180, el = (y + 0.5) / h * 180 - 90;
+    let v = 0.16;   // 暗房底色压低，明暗靠灯
+    for (const [a, e, ha, he, k] of lamps) {
+      let da = Math.abs(az - a); if (da > 180) da = 360 - da;
+      v += k * (1 - THREE.MathUtils.smoothstep(da, ha * 0.85, ha)) * (1 - THREE.MathUtils.smoothstep(Math.abs(el - e), he * 0.85, he));
+    }
+    const i = (y * w + x) * 4; data[i] = data[i + 1] = data[i + 2] = v; data[i + 3] = 1;
+  }
+  const t = new THREE.DataTexture(data, w, h, THREE.RGBAFormat, THREE.FloatType);
+  t.mapping = THREE.EquirectangularReflectionMapping; t.magFilter = t.minFilter = THREE.LinearFilter; t.needsUpdate = true;
+  return t;
+}
+scene.environment = new THREE.PMREMGenerator(renderer).fromEquirectangular(studioHDR()).texture;
+
+const camera = new THREE.PerspectiveCamera(28, W() / H(), 1, 2000);
+camera.position.set(0, -8, 310);
+
+// 主光投影；离线渲染时会在一块面光区域里抖动它，得到柔和阴影
+const key = new THREE.DirectionalLight(0xffffff, 2.8);
+const KEY = new THREE.Vector3(-70, 110, 150);
+key.position.copy(KEY); key.castShadow = true;
+key.shadow.mapSize.set(PT ? 4096 : 2048, PT ? 4096 : 2048);
+Object.assign(key.shadow.camera, { left: -170, right: 170, top: 120, bottom: -120, near: 10, far: 500 });
+key.shadow.bias = -0.0004; key.shadow.normalBias = 0.04; key.shadow.radius = PT ? 1 : 3;
+scene.add(key);
+const fill = new THREE.DirectionalLight(0xf2f2ff, 0.2); fill.position.set(120, 20, 60); scene.add(fill);
+const rim = new THREE.DirectionalLight(0xffffff, 1.6); rim.position.set(60, -80, -120); scene.add(rim);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.enablePan = false; controls.enableZoom = false;   // 不劫持页面滚动
+controls.saveState();
+
+// ---------- 配色（CMF） ----------
+// frame：外框材质；inner：内衬板底色；ink：内衬印刷色；disc：圆盘；bg：背景；cord：挂绳
+const CW = {
+  // 糖果色：外框阳极氧化，圆盘 + 挂绳撞色；backInner = 背衬，比外框浅一号
+  mint:   { name: 'MINT',   chip: '#9FE3C6', frame: { color: 0x8FDDBD, metalness: 0.75, roughness: 0.38 },
+            inner: '#F1F6F2', ink: '#1F2B26', disc: { color: 0xFBE8A6, metalness: 0.45, roughness: 0.3 }, bg: 0xCFEADF, cord: 0xFBE8A6,
+            backInner: '#93DCBE' },
+  lilac:  { name: 'LILAC',  chip: '#C9B6F2', frame: { color: 0xC2AEF0, metalness: 0.75, roughness: 0.38 },
+            inner: '#F5F2FB', ink: '#25212F', disc: { color: 0xF7F6F3, metalness: 0, roughness: 0.3, clearcoat: 0.8 }, bg: 0xE2DBF3, cord: 0xF7F6F3,
+            backInner: '#C3AFF0' },
+  sky:    { name: 'SKY',    chip: '#9CD3F5', frame: { color: 0x8CCBF2, metalness: 0.75, roughness: 0.38 },
+            inner: '#F2F7FB', ink: '#1C2A36', disc: { color: 0xF9C9D3, metalness: 0.45, roughness: 0.3 }, bg: 0xD3E8F6, cord: 0xF9C9D3,
+            backInner: '#90C9F1' },
+  white:  { name: 'WHITE',  chip: '#EDEBE6', frame: { color: 0xF2F1ED, metalness: 0.0, roughness: 0.55, clearcoat: 0.15, clearcoatRoughness: 0.5 },
+            inner: '#F3F2EE', ink: '#1A1A1A', disc: { color: 0xD8D8D4, metalness: 1, roughness: 0.25 }, bg: 0xE4E3DF, cord: 0xDAD8D2,
+            backInner: '#F8F7F4' },
+  black:  { name: 'BLACK',  chip: '#232325', frame: { color: 0x2A2A2D, metalness: 1, roughness: 0.32 },
+            inner: '#121212', ink: '#D8D8D8', disc: { color: 0x3A3A3D, metalness: 1, roughness: 0.25 }, bg: 0x8E8E8B, cord: 0x1C1C1C,
+            backInner: '#3E3E42' },
+  // 橙色：钛合金阳极氧化，金属本色 + 拉丝各向异性高光
+  orange: { name: 'ORANGE', chip: '#E2541E', frame: { color: 0xE2541E, metalness: 1, roughness: 0.3, anisotropy: 0.5 },
+            inner: '#ECEAE5', ink: '#1A1A1A', disc: { color: 0xF0703A, metalness: 1, roughness: 0.25 }, bg: 0xFF9466, cord: 0xFF5B1F,
+            backInner: '#E9662F' },
+  // 莫奈定制款：外框按《普尔维尔的悬崖散步》做天蓝→海青→草地的渐变，背衬印原画（背板保持透明），圆盘和挂绳取画中花的粉
+  monet:  { name: 'MONET',  chip: 'url(assets/monet-chip.jpg) center/cover', monet: true, frame: { color: 0xFFFFFF, metalness: 0.7, roughness: 0.32 },
+            inner: '#F4F1E8', ink: '#23394A', disc: { color: 0xEFA3B6, metalness: 0.75, roughness: 0.3 }, bg: 0x9FCDE6, cord: 0xEFA3B6 },
+};
+
+// ---------- 工具 ----------
+function rrect(p, w, h, r, cx = 0, cy = 0) {
+  const x = cx - w / 2, y = cy - h / 2;
+  p.moveTo(x + r, y); p.lineTo(x + w - r, y); p.quadraticCurveTo(x + w, y, x + w, y + r);
+  p.lineTo(x + w, y + h - r); p.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  p.lineTo(x + r, y + h); p.quadraticCurveTo(x, y + h, x, y + h - r);
+  p.lineTo(x, y + r); p.quadraticCurveTo(x, y, x + r, y);
+  return p;
+}
+const circ = (cx, cy, r) => { const h = new THREE.Path(); h.absarc(cx, cy, r, 0, Math.PI * 2, true); return h; };
+const extrude = (shape, depth, bevel = 0, seg = 5) => new THREE.ExtrudeGeometry(shape, {
+  depth, curveSegments: 48, bevelEnabled: bevel > 0, bevelThickness: bevel, bevelSize: bevel, bevelSegments: seg });
+const mesh = (g, m, x = 0, y = 0, z = 0, parent) => { const o = new THREE.Mesh(g, m); o.position.set(x, y, z); parent && parent.add(o); return o; };
+const box = (w, h, d, m, x, y, z, parent) => mesh(new THREE.BoxGeometry(w, h, d), m, x, y, z, parent);
+const cyl = (r, d, m, x, y, z, parent, seg = 48) => { const o = mesh(new THREE.CylinderGeometry(r, r, d, seg), m, x, y, z, parent); o.rotation.x = Math.PI / 2; return o; };
+function canvasTex(w, h, draw) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const ctx = c.getContext('2d'); draw(ctx, w, h);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
+  t.userData = { c, ctx }; return t;
+}
+// 挤出体的 UV = 毫米坐标；把一张 56×86 mm 的画布贴满整个器件范围
+const mmTex = (draw, mirror = false) => {
+  const PX = 24, t = canvasTex(56 * PX, 86 * PX, (ctx) => { if (mirror) { ctx.translate(56 * PX, 0); ctx.scale(-1, 1); } ctx.scale(PX, PX); draw(ctx); });
+  t.repeat.set(1 / 56, 1 / 86); t.offset.set(0.5, 0.5); return t;
+};
+// 画布坐标（mm，左上为原点）
+const cx = x => x + 28, cy = y => 43 - y;
+
+// 车削纹：圆盘上的同心圆
+const latheTex = (() => {
+  const c = document.createElement('canvas'); c.width = 4; c.height = 512; const ctx = c.getContext('2d');
+  for (let y = 0; y < 512; y++) { const v = 128 + 120 * Math.sin(y / 512 * Math.PI * 2 * 40); ctx.fillStyle = `rgb(${v},${v},${v})`; ctx.fillRect(0, y, 4, 1); }
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
+})();
+// 莫奈原画 + 外框渐变（天空→海→草地）
+const monetImg = await new Promise(res => { const im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = window.MONET_SRC || 'assets/' + 'monet.jpg'; });
+const monetFrameTex = (() => {
+  const c = document.createElement('canvas'); c.width = 8; c.height = 512; const ctx = c.getContext('2d');
+  const g = ctx.createLinearGradient(0, 0, 0, 512);
+  [[0, '#9CCBEA'], [0.42, '#5FB8C6'], [0.75, '#A9C79A'], [1, '#E3B7B0']].forEach(([o, col]) => g.addColorStop(o, col));
+  ctx.fillStyle = g; ctx.fillRect(0, 0, 8, 512);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.repeat.set(1 / 56, 1 / 86); t.offset.set(0.5, 0.5); return t;
+})();
+const monetBg = monetImg ? new THREE.Texture(monetImg) : null;
+if (monetBg) { monetBg.colorSpace = THREE.SRGBColorSpace; monetBg.needsUpdate = true; }
+// 背景图按画面比例裁切（cover），焦点放在海平线和悬崖
+function fitBg() {
+  if (!monetBg) return;
+  const ia = monetImg.width / monetImg.height, va = W() / H();
+  if (va > ia) { const r = ia / va; monetBg.repeat.set(1, r); monetBg.offset.set(0, THREE.MathUtils.clamp(0.52 - r / 2, 0, 1 - r)); }
+  else { const r = va / ia; monetBg.repeat.set(r, 1); monetBg.offset.set((1 - r) / 2, 0); }
+}
+// 无线充电线圈：银色绕线同心圆
+const coilTex = canvasTex(1024, 1024, (ctx) => {
+  ctx.fillStyle = '#4a4a4e'; ctx.fillRect(0, 0, 1024, 1024);
+  for (let r = 180; r < 510; r += 9) { ctx.strokeStyle = r % 18 ? '#e4e4e8' : '#b9b9be'; ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(512, 512, r, 0, Math.PI * 2); ctx.stroke(); }
+});
+
+await Promise.all(['700 80px Doto', '400 30px "Space Mono"', '700 30px "Space Mono"'].map(f => document.fonts.load(f))).catch(() => {});
+
+// ---------- 器件 ----------
+const T = 9, B = 2.0;                      // 厚度、外框圆边半径
+const ASK = [10, -20], SCR = [0, 16];      // 圆盘中心、屏幕中心
+const parts0 = [   // 名称、说明、重量、爆炸位移、编号圆点位置
+  ['背面透明窗', '透明 PC', 3, -36, [-12, -30, 0.6]],
+  ['背衬 + 线圈', '外框浅一号同色 · 线圈 · 接触式麦克风', 6, -24, [9, 6, 2.0]],
+  ['电池', '软包锂电 ≈400 mAh', 8, -12, [-8, -10, 5.4]],
+  ['外框', '阳极氧化铝 CNC · 侧键', 13, 0, [-28, -12, 4.5]],
+  ['主板 PCBA', 'SoC · 麦克风 × 3 · 马达', 7, 10, [-10, 33, 6.2]],
+  ['墨水屏', '2.4" E-PAPER', 7, 20, [-14, 12, 6.95]],
+  ['内衬板', '印刷信息 · 指示灯', 3, 30, [-15, -30, 7.3]],
+  ['正面透明窗', '透明 PC', 4, 40, [-15, 25, 8.6]],
+  ['ASK 圆盘', '凹面铝 · 车削纹', 2, 50, [ASK[0], ASK[1] + 5, 9.1]],
+];
+
+function buildDevice(cwKey) {
+  const cw = CW[cwKey];
+  const M = {
+    frame:  new THREE.MeshPhysicalMaterial({ ...cw.frame, ...(cw.monet ? { map: monetFrameTex } : {}) }),
+    disc:   new THREE.MeshPhysicalMaterial({ ...cw.disc, bumpMap: latheTex, bumpScale: 0.25, side: THREE.DoubleSide }),
+    clear:  new THREE.MeshPhysicalMaterial({ color: 0xffffff, metalness: 0, roughness: 0.03, transmission: 1, thickness: 0.8, ior: 1.5, specularIntensity: 0.6 }),
+    dark:   new THREE.MeshStandardMaterial({ color: 0x0E0E0E, roughness: 0.85 }),
+    red:    new THREE.MeshStandardMaterial({ color: 0xD71921, emissive: 0xD71921, emissiveIntensity: 0.3, roughness: 0.4 }),
+    led:    new THREE.MeshStandardMaterial({ color: 0x5a0d10, emissive: 0xFF2A2A, emissiveIntensity: 0, roughness: 0.3 }),
+    pcb:    new THREE.MeshStandardMaterial({ color: 0x1E1F1E, roughness: 0.45 }),
+    chip:   new THREE.MeshStandardMaterial({ color: 0x2B2B2B, roughness: 0.35 }),
+    silver: new THREE.MeshStandardMaterial({ color: 0xC8C8C8, metalness: 1, roughness: 0.22 }),
+    screw:  new THREE.MeshStandardMaterial({ color: 0xB0B0B0, metalness: 1, roughness: 0.25 }),
+    fpc:    new THREE.MeshStandardMaterial({ color: 0xD27A22, roughness: 0.45 }),
+    pouch:  new THREE.MeshStandardMaterial({ color: 0xC2C4C6, metalness: 0.75, roughness: 0.3 }),
+    copper: new THREE.MeshStandardMaterial({ map: coilTex, metalness: 1, roughness: 0.35 }),
+    cord:   new THREE.MeshStandardMaterial({ color: cw.cord, roughness: 0.9 }),
+    module: new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.6 }),
+  };
+  const dev = new THREE.Group(), parts = [], R = {};
+  parts0.forEach(([name, note, weight, dz, anchor]) => {
+    const g = new THREE.Group(); dev.add(g);
+    const a = new THREE.Object3D(); a.position.set(...anchor); g.add(a);
+    parts.push({ group: g, name, note, weight, dz, anchor: a });
+  });
+  const [pBackWin, pBackPlate, pBat, pFrame, pPcb, pScr, pPlate, pFrontWin, pAsk] = parts.map(p => p.group);
+
+  // 外框：一整圈软圆角的铝环，正反两面开窗
+  {
+    const s = rrect(new THREE.Shape(), 56 - 2 * B, 86 - 2 * B, 12 - B);
+    s.holes.push(rrect(new THREE.Path(), 46, 76, 7));
+    mesh(extrude(s, T - 2 * B, B, 10), M.frame, 0, 0, B, pFrame);
+    // 侧键：REC 拨杆（参考 iPod Hold 键 / iPhone 静音键）与 MARK 键
+    const stadium = (p, w, h) => rrect(p, w, h, w / 2 - 0.001);
+    const side = (geo, mat, x, y, parent) => { const o = mesh(geo, mat, x, y, 0, parent); o.rotation.y = Math.PI / 2; return o; };
+    const slotG = new THREE.Group(); slotG.position.set(0, 17, T / 2); pFrame.add(slotG);
+    side(extrude(stadium(new THREE.Shape(), 3.0, 10.8), 0.3), M.dark, 27.76, 0, slotG);
+    side(extrude(stadium(new THREE.Shape(), 2.5, 4.8), 0.05), M.red, 28.04, 2.6, slotG);
+    R.recKnob = new THREE.Group(); R.recKnob.position.set(28.0, 14.4, T / 2); pFrame.add(R.recKnob);
+    R.recToggle = side(extrude(stadium(new THREE.Shape(), 2.2, 4.6), 0.3, 0.16), M.disc, 0.12, 0, R.recKnob);
+    R.recToggle.userData.act = 'rec';
+    R.markBtn = new THREE.Group(); R.markBtn.position.set(28.0, 2, T / 2); pFrame.add(R.markBtn);
+    side(extrude(stadium(new THREE.Shape(), 2.9, 7.4), 0.06), M.dark, 0.0, 0, R.markBtn);
+    R.markMesh = side(extrude(stadium(new THREE.Shape(), 2.3, 6.8), 0.22, 0.18), M.disc, 0.12, 0, R.markBtn);
+    R.markMesh.userData.act = 'mark';
+    // 顶边：麦克风开孔阵列（真实的孔，开在外框上）
+    for (let i = 0; i < 7; i++) for (let j = 0; j < 2; j++) mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.6, 16), M.dark, 6 + i * 1.6, 42.9, T / 2 + (j - 0.5) * 1.4, pFrame);
+    // 底边：USB-C、底部麦克风孔
+    const usb = mesh(new THREE.CapsuleGeometry(1.45, 4.1, 6, 16), M.dark, 0, -43.0, T / 2, pFrame);
+    usb.rotation.z = Math.PI / 2; usb.scale.set(0.15, 1, 1);
+    mesh(new THREE.CylinderGeometry(0.55, 0.55, 0.3, 16), M.dark, 10, -43.0, T / 2, pFrame);
+    // 挂绳：从左下角的挂孔穿出，颜色随配色
+    const curve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(-22, -40, 4.5), new THREE.Vector3(-25, -50, 5.0), new THREE.Vector3(-21, -62, 4.0),
+      new THREE.Vector3(-12, -63, 4.8), new THREE.Vector3(-11, -52, 4.2), new THREE.Vector3(-15, -41, 4.5)]);
+    mesh(new THREE.TubeGeometry(curve, 140, 1.4, 20, false), M.cord, 0, 0, 0, pFrame);
+  }
+
+  // 正面透明窗：PC 盖板，右上角开麦克风孔，ASK 处开圆孔
+  {
+    const s = rrect(new THREE.Shape(), 42.4, 72.4, 5.2);
+    s.holes.push(circ(...ASK, 8.9));
+    const m = mesh(extrude(s, 0.6, 0.2, 4), M.clear, 0, 0, 7.75, pFrontWin); m.castShadow = false;
+  }
+  // 背面透明窗
+  {
+    const m = mesh(extrude(rrect(new THREE.Shape(), 42.4, 72.4, 5.2), 0.6, 0.2, 4), new THREE.MeshPhysicalMaterial({ color: 0xffffff, metalness: 0, roughness: 0.03, transmission: 1, thickness: 0.8, ior: 1.5, specularIntensity: 0.3 }), 0, 0, 0.65, pBackWin); m.castShadow = false;
+  }
+
+  // 内衬板：正面印刷信息，开屏幕窗和圆盘孔
+  {
+    const tex = mmTex((c) => {
+      c.fillStyle = cw.inner; c.fillRect(0, 0, 56, 86);
+      c.fillStyle = cw.ink; c.strokeStyle = cw.ink; c.lineWidth = 0.12;
+      c.font = '400 1.3px "Space Mono"'; c.fillText('REC', cx(-12.2), cy(32.9));
+      const [sx0, sy0] = [SCR[0] - 19.6, SCR[1] + 15.6];
+      [[sx0, sy0, 1, 1], [-sx0, sy0, -1, 1], [sx0, SCR[1] - 15.6, 1, -1], [-sx0, SCR[1] - 15.6, -1, -1]].forEach(([x, y, dx, dy]) => {
+        c.beginPath(); c.moveTo(cx(x), cy(y - dy * 1.4)); c.lineTo(cx(x), cy(y)); c.lineTo(cx(x + dx * 1.4), cy(y)); c.stroke(); });
+      c.font = '700 3.2px Doto'; c.fillText('COMETREC', cx(-18.5), cy(-6.2));
+      c.font = '400 1.1px "Space Mono"'; c.fillText('AI VOICE CARD · CR-01', cx(-18.5), cy(-8.3));
+      for (let i = 0; i < 5; i++) { c.globalAlpha = i < 4 ? 1 : 0.3; c.beginPath(); c.arc(cx(-17.8 + i * 1.6), cy(-12), 0.45, 0, Math.PI * 2); c.fill(); }
+      c.globalAlpha = 1;
+      c.font = '400 1.1px "Space Mono"'; c.textAlign = 'right';
+      c.fillText('MARK ▸', cx(20.2), cy(1.6));
+      c.textAlign = 'left';
+      c.fillText('HOLD', cx(-18.5), cy(-27)); c.fillText('TO ASK ▸', cx(-18.5), cy(-28.6));
+      for (let i = 0; i <= 20; i++) { const x = -17 + i * 1.1; c.beginPath(); c.moveTo(cx(x), cy(-33.4)); c.lineTo(cx(x), cy(i % 5 ? -32.8 : -32.2)); c.stroke(); }
+      c.fillText('56 × 86 × 9 MM', cx(6.5), cy(-33.2));
+    });
+    const s = rrect(new THREE.Shape(), 42, 72, 5);
+    s.holes.push(rrect(new THREE.Path(), 38, 30, 1.6, ...SCR));
+    s.holes.push(circ(...ASK, 8.9));
+    const mat = new THREE.MeshPhysicalMaterial({ map: tex, roughness: 0.55, clearcoat: 0.2 });
+    mesh(extrude(s, 0.3), mat, 0, 0, 7.05, pPlate);
+    R.led = box(2.2, 2.2, 0.3, M.led, -15, 32.4, 7.45, pPlate);
+    for (const [x, y] of [[-18.2, 33.2], [18.2, 33.2], [-18.2, -33.2], [18.2, -33.2]]) {
+      cyl(0.8, 0.25, M.screw, x, y, 7.45, pPlate, 24);
+      box(1.0, 0.16, 0.1, M.dark, x, y, 7.6, pPlate).rotation.z = 0.7;
+    }
+    cyl(8.9, 0.1, M.dark, ...ASK, 6.95, pPlate, 64);
+  }
+
+  // 墨水屏
+  {
+    box(40, 32, 1.0, M.module, ...SCR, 6.4, pScr);
+    R.screenTex = canvasTex(960, 758, () => {});
+    mesh(new THREE.PlaneGeometry(38, 30), new THREE.MeshStandardMaterial({ map: R.screenTex, roughness: 0.85 }), ...SCR, 6.92, pScr);
+  }
+
+  // 主板
+  {
+    box(40, 10, 0.8, M.pcb, 0, 34, 6.0, pPcb);
+    box(6, 6, 1, M.chip, -12, 34, 6.8, pPcb); box(5, 4, 0.8, M.chip, -4, 34, 6.7, pPcb); box(5, 4, 0.9, M.silver, 3, 34, 6.75, pPcb);
+    for (const x of [9, 17]) box(3, 2.4, 1, M.silver, x, 35, 6.8, pPcb);
+    box(4, 30, 0.15, M.fpc, 18, 12, 5.5, pPcb);
+    cyl(5, 0.6, M.pcb, ...ASK, 6.1, pPcb); cyl(2.2, 0.4, M.silver, ...ASK, 6.5, pPcb);
+    box(10, 5, 2.4, M.silver, -12, -24, 4.5, pPcb);
+    box(9, 6.5, 3.2, M.silver, 0, -38.5, 4.5, pPcb);
+  }
+
+  // 电池
+  box(38, 40, 3.0, M.pouch, 0, -2, 4.0, pBat);
+
+  // 背衬 + 线圈：从背面透明窗能看到
+  {
+    const art = cw.monet && monetImg;
+    const tex = mmTex((c) => {
+      c.fillStyle = cw.backInner || cw.inner; c.fillRect(0, 0, 56, 86);
+      if (art) {   // 原画按 cover 裁进 42×72 的背衬
+        const ia = monetImg.width / monetImg.height, pa = 42 / 72;
+        const sw = ia > pa ? monetImg.height * pa : monetImg.width, sh = ia > pa ? monetImg.height : monetImg.width / pa;
+        c.drawImage(monetImg, (monetImg.width - sw) * 0.62, (monetImg.height - sh) / 2, sw, sh, 7, 7, 42, 72);   // 焦点偏右：悬崖与撑伞的人
+      }
+      c.fillStyle = cw.ink; c.strokeStyle = cw.ink; c.lineWidth = 0.12;
+      c.textAlign = 'center';
+      if (art) { c.font = '400 1.1px "Space Mono"'; c.fillText('MONET EDITION · CLIFF WALK AT POURVILLE, 1882', 28, 15); }
+      c.font = '700 3.4px Doto'; c.fillText('COMETREC', 28, 10.5);
+      c.font = '400 1.1px "Space Mono"'; c.fillText('RECORD · MARK · ASK', 28, 12.6);
+      ['Designed by Comet in Shenzhen', 'Concept prototype · Model CR-01', '3.85 V ⎓ 400 mAh (est.)', 'Aluminium 6063 · PC · Anodized'].forEach((l, i) => c.fillText(l, 28, 71 + i * 1.8));
+      c.fillStyle = '#D71921'; c.fillRect(26.9, 78.6, 2.2, 2.2);
+    }, true);
+    const s = rrect(new THREE.Shape(), 42, 72, 5); if (!art) s.holes.push(circ(0, 0, 18));
+    // 背面朝向轮廓光，整体压暗一点，避免浅色被打成白色
+    mesh(extrude(s, 0.3), new THREE.MeshPhysicalMaterial({ map: tex, roughness: 0.6, color: art ? 0xa8a8a8 : 0x9c9c9c }), 0, 0, 1.5, pBackPlate);
+    const coil = mesh(new THREE.RingGeometry(5.5, 17.8, 96), M.copper, 0, 0, art ? 1.9 : 1.6, pBackPlate); coil.rotation.y = Math.PI;
+    cyl(5.5, 0.3, M.dark, 0, 0, 1.75, pBackPlate);
+    cyl(2.0, 0.6, M.silver, 0, 0, 1.6, pBackPlate);      // 接触式麦克风
+  }
+
+  // ASK 圆盘：凹面 + 车削同心纹，略高出正面
+  {
+    const pts = [[0, -0.35], [3, -0.27], [6, -0.06], [7.9, 0], [8.25, -0.2], [8.3, -0.6], [8.3, -2.2], [0, -2.2]].map(([r, y]) => new THREE.Vector2(r, y));
+    R.askBtn = mesh(new THREE.LatheGeometry(pts, 128), M.disc, ...ASK, 9.05, pAsk);
+    R.askBtn.rotation.x = Math.PI / 2; R.askBtn.userData.act = 'ask';
+    cyl(0.5, 0.05, M.dark, ...ASK, 8.72, pAsk, 24);
+  }
+
+  dev.traverse(o => { if (o.isMesh && !o.material.transmission) { o.castShadow = true; o.receiveShadow = true; } });
+  return { group: dev, parts, ...R, cw: cwKey };
+}
+
+// ---------- 屏幕 UI ----------
+const state = { rec: true, t0: performance.now() - 768000, marks: 1, asking: false, answerUntil: 0 };
+function drawScreen(tex, now) {
+  const { ctx } = tex.userData, SW = 960, ink = '#161616';
+  ctx.fillStyle = '#D6D6CE'; ctx.fillRect(0, 0, SW, 758);
+  ctx.fillStyle = ink; ctx.font = '400 34px "Space Mono"';
+  const el = Math.floor((now - state.t0) / 1000), mm = String(Math.floor(el / 60)).padStart(2, '0'), ss = String(el % 60).padStart(2, '0');
+  if (state.rec) { ctx.fillStyle = '#D71921'; ctx.fillRect(56, 64, 26, 26); ctx.fillStyle = ink; ctx.fillText('REC', 96, 90); }
+  else ctx.fillText('READY', 56, 90);
+  ctx.fillText('80%', SW - 130, 90);
+  ctx.fillRect(56, 120, SW - 112, 3);
+  if (state.asking || now < state.answerUntil) {
+    ctx.fillText(state.asking ? 'LISTENING…' : 'ANSWER', 56, 200);
+    if (state.asking) {
+      for (let i = 0; i < 40; i++) { const a = 20 + 140 * Math.abs(Math.sin(now / 160 + i * 0.7) * Math.sin(i * 0.3)); ctx.fillRect(56 + i * 21.5, 420 - a / 2, 11, a); }
+    } else {
+      ctx.font = '500 46px "PingFang SC", sans-serif'; ctx.fillText('截止日期：下周五 11/14', 56, 320);
+      ctx.font = '400 34px "PingFang SC", sans-serif'; ctx.fillStyle = '#555'; ctx.fillText('王工在 03:12 提到，已加入待办', 56, 390);
+    }
+  } else if (state.rec) {
+    ctx.font = '700 220px Doto'; ctx.fillText(`${mm}:${ss}`, 40, 350);
+    for (let i = 0; i < 40; i++) {
+      const a = 12 + 110 * Math.abs(Math.sin(i * 1.7 + now / 300) * Math.cos(i * 0.45 + now / 900));
+      ctx.fillStyle = i === 39 ? '#D71921' : ink; ctx.fillRect(56 + i * 21.5, 510 - a / 2, 11, a);
+    }
+  } else {
+    const d = new Date(); ctx.font = '700 220px Doto';
+    ctx.fillText(`${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`, 40, 350);
+    ctx.font = '400 38px "PingFang SC", sans-serif';
+    ['→ 周五前发方案给王工', '→ 确认会议室预订', '→ 回复供应商报价'].forEach((s, i) => ctx.fillText(s, 56, 440 + i * 58));
+  }
+  ctx.fillStyle = ink; ctx.fillRect(56, 630, SW - 112, 3);
+  ctx.font = '400 34px "Space Mono"'; ctx.fillText(`3 TODOS · ${state.marks} MARK${state.marks > 1 ? 'S' : ''}`, 56, 695);
+  tex.needsUpdate = true;
+}
+
+// ---------- 姿态 ----------
+const views = { hero: [-0.32, 0.55, 0.22], front: [0, 0, 0], side: [0, -Math.PI / 2 + 0.25, 0], back: [0, Math.PI, 0],
+                detail: [-0.12, -Math.PI / 2 + 0.6, 0.08], backTilt: [-0.18, Math.PI - 0.45, -0.12] };
+let target = new THREE.Euler(...views.hero), curView = 'hero';
+const ease = t => 1 - Math.pow(1 - t, 3);
+function pose(D, e, k, shift = true) {
+  D.parts.forEach(p => p.group.position.z = p.dz * e * 0.9);
+  const tgt = target.clone(); if (e > 0.01) { tgt.x += -0.25 * e; tgt.y += 0.35 * e; }
+  const r = D.group.rotation;
+  r.x += (tgt.x - r.x) * k; r.y += (tgt.y - r.y) * k; r.z += (tgt.z - r.z) * k;
+  camera.zoom = 1 - 0.28 * e;
+  camera.setViewOffset(W(), H(), shift ? -W() * 0.1 * e : 0, shift ? -H() * 0.07 * e : 0, W(), H());
+  camera.updateProjectionMatrix();
+}
+function setBackground(cwKey) {
+  const cw = CW[cwKey];
+  if (cw.monet && monetBg) { fitBg(); scene.background = monetBg; }
+  else scene.background = new THREE.Color(cw.bg);
+  hero.style.setProperty('--bg', '#' + new THREE.Color(cw.bg).getHexString());
+  hero.classList.toggle('dark', !!cw.dark);
+  hero.classList.toggle('art', !!cw.monet);
+  document.body.style.background = cw.monet ? '#DCEBF1' : '';
+}
+
+// ================= 离线渲染模式 =================
+if (PT) {
+  const shots = {
+    hero:    { list: ['mint', 'lilac', 'sky'], gap: 64, bg: 0xEAE7E1, zoom: 1.02 },
+    lineup:  { list: ['mint', 'lilac', 'sky', 'white', 'black', 'orange', 'monet'], gap: 44, bg: 0xE4E3DF, zoom: 0.62 },
+    orange:  { cw: 'orange', view: 'hero', zoom: 1.3, oy: 0.07 },
+    monet:   { cw: 'monet',  view: 'hero', zoom: 1.3, oy: 0.07 },
+    monetBack: { cw: 'monet', view: 'backTilt', zoom: 1.3, oy: 0.04 },
+    back:    { list: ['mint', 'lilac', 'sky', 'orange'], gap: 58, bg: 0xE4E3DF, zoom: 0.9, rot: [-0.18, Math.PI - 0.45, -0.12] },
+    explode: { cw: 'mint',   view: 'hero', e: 1, zoom: 1.0 },
+    // 广告大片构图：大角度斜放、仰拍透视、白到灰的渐变背景
+    drama:   { cw: 'white',  view: 'front', rot: [-0.45, 0.42, -0.72], zoom: 1.45, fov: 38, dist: 150, oy: -0.02, grad: ['#3E3F3E', '#9C9D9A', '#F4F4F2'] },
+  };
+  const s = shots[PT] || shots.hero;
+  if (s.list) {
+    scene.background.set(s.bg);
+    s.list.forEach((k, i) => {
+      const D = buildDevice(k); scene.add(D.group);
+      D.group.position.set((i - (s.list.length - 1) / 2) * s.gap, (i % 2 ? -6 : 6), 0);
+      D.group.rotation.set(...(s.rot || [-0.22, 0.42, 0.16]));
+      drawScreen(D.screenTex, performance.now()); D.led.material.emissiveIntensity = 2.4;
+    });
+  } else {
+    const D = buildDevice(s.cw); scene.add(D.group);
+    setBackground(s.cw);
+    target = new THREE.Euler(...views[s.view]);
+    drawScreen(D.screenTex, performance.now()); D.led.material.emissiveIntensity = 2.4;
+    pose(D, ease(s.e || 0), 1, false);
+    if (s.rot) D.group.rotation.set(...s.rot);
+  }
+  if (s.fov) { camera.fov = s.fov; camera.position.set(0, -20, s.dist); camera.lookAt(0, 0, 0); }
+  if (s.grad) {
+    const g = canvasTex(512, 4, (c) => { const lg = c.createLinearGradient(0, 0, 512, 0); s.grad.forEach((col, i) => lg.addColorStop(i / (s.grad.length - 1), col)); c.fillStyle = lg; c.fillRect(0, 0, 512, 4); });   // 左暗右亮
+    scene.background = g;
+  }
+  camera.zoom = s.zoom; camera.setViewOffset(W(), H(), 0, H() * (s.oy || 0), W(), H()); camera.updateProjectionMatrix();
+  renderer.toneMappingExposure = 1.0;
+  scene.updateMatrixWorld(true);
+  // 多帧累积渲染：每帧把主光在 60 mm 半径的圆盘里抖动（= 面光源的柔和阴影），
+  // 相机做亚像素抖动（= 超采样抗锯齿），线性 HDR 累加后再统一色调映射
+  const N = +(q.get('spp') || 256), w = W(), h = H();
+  const frameRT = new THREE.WebGLRenderTarget(w, h, { type: THREE.HalfFloatType, samples: 4 }), accRT = new THREE.WebGLRenderTarget(w, h, { type: THREE.HalfFloatType });
+  const ortho = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  const addScene = new THREE.Scene(), outScene = new THREE.Scene();
+  addScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.MeshBasicMaterial({
+    map: frameRT.texture, transparent: true, opacity: 1 / N, blending: THREE.AdditiveBlending, depthTest: false, depthWrite: false, toneMapped: false })));
+  outScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.MeshBasicMaterial({ map: accRT.texture, depthTest: false })));
+  const view = { ...camera.view };
+  renderer.setRenderTarget(accRT); renderer.setClearColor(0x000000, 0); renderer.clear();
+  const bg = scene.background;
+  let i = 0;
+  const step = () => {
+    for (let k = 0; k < 8 && i < N; k++, i++) {
+      const r = Math.sqrt((i + 0.5) / N) * 60, a = i * 2.39996;   // 黄金角螺线：圆盘内均匀分布
+      key.position.set(KEY.x + Math.cos(a) * r, KEY.y + Math.sin(a) * r, KEY.z);
+      const jx = ((i * 0.618) % 1) - 0.5, jy = ((i * 0.381) % 1) - 0.5;
+      camera.setViewOffset(w, h, view.offsetX + jx, view.offsetY + jy, w, h); camera.updateProjectionMatrix();
+      scene.background = bg;
+      renderer.setRenderTarget(frameRT); renderer.render(scene, camera);
+      renderer.autoClear = false; renderer.setRenderTarget(accRT); renderer.render(addScene, ortho); renderer.autoClear = true;
+    }
+    document.title = `RENDER ${i}/${N}`;
+    if (i < N) return setTimeout(step, 0);   // 不用 rAF：页面在后台也能继续渲染
+    renderer.setRenderTarget(null); renderer.render(outScene, ortho);
+    document.title = 'DONE';
+    if (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+      fetch(`/save?name=${PT}`, { method: 'POST', body: renderer.domElement.toDataURL('image/jpeg', 0.92) }).then(r => document.title = r.ok ? 'SAVED' : 'SAVE FAILED');
+  };
+  step();
+} else {
+  // ================= 交互模式 =================
+  const first = Object.keys(CW)[0];
+  let D = buildDevice(first); scene.add(D.group); D.group.rotation.copy(target);
+  setBackground(first); document.getElementById('cwName').textContent = CW[first].name;
+  let lastScreen = 0;
+
+  // 配色切换：重建器件，保留姿态
+  const chips = document.getElementById('chips');
+  Object.entries(CW).forEach(([k, cw]) => {
+    const b = document.createElement('button'); b.title = cw.name; b.style.background = cw.chip; if (k === first) b.className = 'on';
+    b.onclick = () => {
+      chips.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+      const rot = D.group.rotation.clone(), pos = D.group.position.clone();
+      scene.remove(D.group);
+      D = buildDevice(k); D.group.rotation.copy(rot); D.group.position.copy(pos); scene.add(D.group);
+      setBackground(k); document.getElementById('cwName').textContent = cw.name;
+      lastScreen = 0;
+    };
+    chips.appendChild(b);
+  });
+
+  // 标注
+  const legendEl = document.getElementById('legend'), badgesEl = document.getElementById('badges');
+  const badges = parts0.map(([name, note, weight], i) => {
+    const no = String(i + 1).padStart(2, '0');
+    const d = document.createElement('div'); d.className = 'lg';
+    d.innerHTML = `<b>${no}</b>${name}<span class="note">${note}</span><span>${weight} g</span>`;
+    legendEl.appendChild(d);
+    const b = document.createElement('div'); b.className = 'badge'; b.textContent = no; badgesEl.appendChild(b); return b;
+  });
+  const sum = document.createElement('div'); sum.className = 'lgsum';
+  sum.textContent = '合计 ≈ 55 G · 含螺丝与胶 · 不含挂绳 · 工程估算'; legendEl.appendChild(sum);
+  const v3 = new THREE.Vector3();
+  const toScreen = obj => { obj.getWorldPosition(v3); v3.project(camera); return [(v3.x + 1) / 2 * W(), (1 - v3.y) / 2 * H()]; };
+  const layoutLegend = e => {
+    const op = Math.max(0, (e - 0.3) / 0.4);
+    legendEl.style.opacity = op;
+    document.getElementById('lede').style.opacity = 1 - op;
+    legendEl.style.top = Math.max(150, H() - 110 - legendEl.offsetHeight) + 'px';
+    D.parts.forEach((p, i) => { const [x, y] = toScreen(p.anchor); Object.assign(badges[i].style, { left: x + 'px', top: y + 'px', opacity: op }); });
+  };
+
+  document.querySelectorAll('#views button').forEach(b => b.onclick = () => {
+    document.querySelectorAll('#views button').forEach(x => x.classList.toggle('on', x === b));
+    curView = b.dataset.v; target = new THREE.Euler(...views[b.dataset.v]); controls.reset();
+  });
+  let ex = 0, exTarget = 0;
+  const exInput = document.getElementById('explode');
+  const setExplode = v => { exTarget = v; exInput.value = Math.round(v * 100); document.getElementById('exv').textContent = exInput.value + '%'; };
+  exInput.oninput = () => setExplode(exInput.value / 100);
+
+  const recBtn = document.getElementById('recBtn');
+  const setRec = on => { state.rec = on; if (on) state.t0 = performance.now(); recBtn.textContent = on ? '● REC ON' : '○ REC OFF'; recBtn.classList.toggle('rec', on); };
+  recBtn.onclick = () => setRec(!state.rec);
+  let markPress = 0;
+  const mark = () => { state.marks++; markPress = performance.now(); };
+  document.getElementById('markBtn').onclick = mark;
+  document.getElementById('shotBtn').onclick = () => {
+    renderer.render(scene, camera);
+    const a = document.createElement('a'); a.download = 'cometrec.png'; a.href = renderer.domElement.toDataURL('image/png'); a.click();
+  };
+
+  const ray = new THREE.Raycaster(), ptr = new THREE.Vector2();
+  const pick = e => {
+    const r = renderer.domElement.getBoundingClientRect();
+    ptr.set((e.clientX - r.left) / r.width * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    ray.setFromCamera(ptr, camera);
+    const hit = ray.intersectObjects([D.recToggle, D.markMesh, D.askBtn], false)[0];
+    return hit && hit.object.userData.act;
+  };
+  renderer.domElement.addEventListener('pointermove', e => renderer.domElement.style.cursor = pick(e) ? 'pointer' : 'grab');
+  renderer.domElement.addEventListener('pointerdown', e => {
+    const a = pick(e); if (!a) return;
+    controls.enabled = false;
+    if (a === 'rec') setRec(!state.rec);
+    if (a === 'mark') mark();
+    if (a === 'ask') state.asking = true;
+  });
+  addEventListener('pointerup', () => {
+    controls.enabled = true;
+    if (state.asking) { state.asking = false; state.answerUntil = performance.now() + 5000; }
+  });
+  renderer.domElement.addEventListener('dblclick', e => { if (pick(e)) return; setExplode(exTarget > 0.5 ? 0 : 1); });
+
+  // 双击提示
+  const hint = document.getElementById('hint'), hintText = document.getElementById('hintText');
+  const hintAnchor = new THREE.Object3D(); hintAnchor.position.set(-29, -22, 8);
+  const layoutHint = e => {
+    if (hintAnchor.parent !== D.group) D.group.add(hintAnchor);
+    const [x, y] = toScreen(hintAnchor);
+    hint.style.left = Math.max(20, x - 110) + 'px';
+    hint.style.top = (y - 60) + 'px';
+    hintText.textContent = e > 0.5 ? '再双击收回' : '双击试试看';
+    hint.style.opacity = (e > 0.05 && e < 0.95) || (curView !== 'hero' && curView !== 'front') ? 0 : 1;
+    hint.querySelector('svg').style.display = e > 0.5 ? 'none' : 'block';
+    if (e > 0.5) { hint.style.left = (W() / 2 - 40) + 'px'; hint.style.top = (H() - 52) + 'px'; }
+  };
+
+  const frame = now => {
+    ex += (exTarget - ex) * 0.12;
+    const e = ease(Math.min(1, Math.max(0, ex)));
+    pose(D, e, 0.08);
+    D.group.position.y = Math.sin(now / 1400) * 1.2 * (1 - e);
+    D.recKnob.position.y = THREE.MathUtils.lerp(D.recKnob.position.y, state.rec ? 14.4 : 19.6, 0.25);
+    D.led.material.emissiveIntensity = state.rec ? 2.2 + Math.sin(now / 500) * 0.3 : 0;
+    D.markBtn.position.x = 28.0 - (now - markPress < 160 ? 0.3 : 0);
+    D.askBtn.position.z = state.asking ? 8.8 : 9.05;
+    if (now - lastScreen > 180) { drawScreen(D.screenTex, now); lastScreen = now; }
+    controls.update();
+    renderer.render(scene, camera);
+    layoutLegend(e); layoutHint(e);
+    document.hidden ? setTimeout(() => frame(performance.now()), 60) : requestAnimationFrame(frame);
+  };
+  document.getElementById('status').textContent = '[READY]';
+  requestAnimationFrame(frame);
+  addEventListener('resize', () => { fitBg(); camera.aspect = W() / H(); camera.updateProjectionMatrix(); renderer.setSize(W(), H()); });
+}
+</script>
+</body>
+</html>
