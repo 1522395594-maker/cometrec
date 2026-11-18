@@ -104,7 +104,7 @@
   <div class="tl">
     <div class="label">AI 录音卡片 · 概念设计 · 朱春兮 Comet</div>
     <h1>COMETREC</h1>
-    <p id="lede">一张贴在手机背面的 AI 录音卡片。透明外壳里能看到它的结构。拖动旋转；点侧面拨杆开始/停止录音，点 MARK 打标记，按住正面圆盘提问。</p>
+    <p id="lede">一张贴在手机背面的 AI 录音卡片。透明外壳里能看到它的结构。拖动旋转；墨水屏可触控，左右滑或点两侧在「今天 · 日程 · 待办」间翻页，待办点按勾选；点侧面拨杆开始/停止录音，点 MARK 打标记，按住正面圆盘问 Nomi。</p>
   </div>
 
   <div id="hint"><div id="hintText">双击试试看</div>
@@ -127,7 +127,7 @@
       <input type="range" id="explode" min="0" max="100" value="0" style="margin-top:8px">
     </div>
     <div class="row">
-      <button class="pill rec" id="recBtn">● REC ON</button>
+      <button class="pill" id="recBtn">○ REC OFF</button>
       <button class="pill" id="markBtn">MARK</button>
       <button class="pill" id="shotBtn">导出 PNG</button>
     </div>
@@ -169,7 +169,7 @@
     <tr><td class="n">03</td><td class="k">电池</td><td class="s">400 mAh 软包锂电 + 保护板，定制尺寸</td><td class="v">¥8.0</td><td class="p"></td><td class="src">小容量软包电芯 6–10 元，含保护板</td></tr>
     <tr><td class="n">04</td><td class="k">外框</td><td class="s">铝 6063 CNC + 阳极氧化 ¥40 · 侧键 2 颗 ¥3</td><td class="v">¥43.0</td><td class="p"></td><td class="src">卡片大小 CNC 铝框 30–50 元；莫奈款渐变阳极氧化另加约 ¥10</td></tr>
     <tr><td class="n">05</td><td class="k red">主板 PCBA</td><td class="s">音频 SoC（BLE + Wi-Fi）¥18 · 64 GB 存储 ¥28 · MEMS 麦克风 ×3 ¥4.5 · 电源与充电 ¥4 · 无线充电接收 ¥5 · 线性马达 ¥3 · USB-C ¥1 · 6 层板 + 贴片 ¥15</td><td class="v">¥78.5</td><td class="p"></td><td class="src">最大头是存储；64 GB 参照同类录音卡片的配置，降到 32 GB 可省约 ¥12</td></tr>
-    <tr><td class="n">06</td><td class="k">墨水屏</td><td class="s">2.4 寸 E-paper 模组，无前光</td><td class="v">¥22.0</td><td class="p"></td><td class="src">2.1–2.9 寸黑白墨水屏模组批量 18–30 元</td></tr>
+    <tr><td class="n">06</td><td class="k">墨水屏</td><td class="s">2.4 寸 E-paper 模组 + 电容触控层，无前光</td><td class="v">¥28.0</td><td class="p"></td><td class="src">2.1–2.9 寸黑白墨水屏模组批量 18–30 元；贴合电容触控（GFF）另加约 6 元</td></tr>
     <tr><td class="n">07</td><td class="k">内衬板</td><td class="s">PC 印刷内衬 + 红色指示灯 + 装饰螺丝</td><td class="v">¥2.5</td><td class="p"></td><td class="src">丝印件 + 贴片 LED</td></tr>
     <tr><td class="n">08</td><td class="k">正面透明窗</td><td class="s">PC 0.6 mm，圆孔加工 + 抗指纹镀膜</td><td class="v">¥3.0</td><td class="p"></td><td class="src">比背面多一个圆孔工序</td></tr>
     <tr><td class="n">09</td><td class="k">ASK 圆盘</td><td class="s">铝车削 + 阳极氧化 + 锅仔片</td><td class="v">¥5.0</td><td class="p"></td><td class="src">小型车削件 3–6 元</td></tr>
@@ -381,7 +381,7 @@ const parts0 = [   // 名称、说明、重量、爆炸位移、编号圆点位�
   ['电池', '软包锂电 ≈400 mAh', 8, -12, [-8, -10, 5.4]],
   ['外框', '阳极氧化铝 CNC · 侧键', 13, 0, [-28, -12, 4.5]],
   ['主板 PCBA', 'SoC · 麦克风 × 3 · 马达', 7, 10, [-10, 33, 6.2]],
-  ['墨水屏', '2.4" E-PAPER', 7, 20, [-14, 12, 6.95]],
+  ['墨水屏', '2.4" E-PAPER · 触控', 7, 20, [-14, 12, 6.95]],
   ['内衬板', '印刷信息 · 指示灯', 3, 30, [-15, -30, 7.3]],
   ['正面透明窗', '透明 PC', 4, 40, [-15, 25, 8.6]],
   ['ASK 圆盘', '凹面铝 · 车削纹', 2, 50, [ASK[0], ASK[1] + 5, 9.1]],
@@ -493,7 +493,8 @@ function buildDevice(cwKey) {
   {
     box(40, 32, 1.0, M.module, ...SCR, 6.4, pScr);
     R.screenTex = canvasTex(960, 758, () => {});
-    mesh(new THREE.PlaneGeometry(38, 30), new THREE.MeshStandardMaterial({ map: R.screenTex, roughness: 0.85 }), ...SCR, 6.92, pScr);
+    R.screen = mesh(new THREE.PlaneGeometry(38, 30), new THREE.MeshStandardMaterial({ map: R.screenTex, roughness: 0.85 }), ...SCR, 6.92, pScr);
+    R.screen.userData.act = 'screen';
   }
 
   // 主板
@@ -549,39 +550,113 @@ function buildDevice(cwKey) {
 }
 
 // ---------- 屏幕 UI ----------
-const state = { rec: true, t0: performance.now() - 768000, marks: 1, asking: false, answerUntil: 0 };
+// 触控墨水屏：左右滑 / 点屏幕两侧翻页；待机三页「今天 · 日程 · 待办」，录音时第一页换成录音页；
+// Ask 不占页面，按住圆盘时整屏接管，回答后回到原页。日程与待办来自钉钉 / 飞书。
+const state = { rec: false, t0: performance.now(), marks: 1, markAt: 0, asking: false, answerUntil: 0, page: 0,
+  note: '刚记下：周五前出报价' };
+const AGENDA = [
+  ['09:30', '晨会', '已录 18 分', 'done'],
+  ['11:00', '供应商沟通', '已录 42 分', 'done'],
+  ['15:00', '产品评审', '3F 会议室 · 4 人', 'next'],
+  ['17:30', '周会复盘', '线上 · 飞书会议', ''],
+];
+const TODOS = [
+  { t: '周五前发方案给王工', src: '产品评审 · 03:12', done: false },
+  { t: '回复供应商报价', src: '供应商沟通 · 21:40', done: false },
+  { t: '确认会议室预订', src: '晨会 · 07:05', done: true },
+];
+const PAGES = 3, SW = 960, SH = 758, INK = '#161616', GREY = '#6a6a64', PAPER = '#D6D6CE';
+const ROW0 = 170, ROWH = 145;   // 待办页的行位置，触控命中也用这组数
+const DEMO_NOW = '14:32';   // 演示时间固定，和「15:00 产品评审 · 还有 28 分钟」对得上
+const CN = (w, s) => `${w} ${s}px "PingFang SC", "Noto Sans SC", sans-serif`, MONO = s => `400 ${s}px "Space Mono"`;
 function drawScreen(tex, now) {
-  const { ctx } = tex.userData, SW = 960, ink = '#161616';
-  ctx.fillStyle = '#D6D6CE'; ctx.fillRect(0, 0, SW, 758);
-  ctx.fillStyle = ink; ctx.font = '400 34px "Space Mono"';
-  const el = Math.floor((now - state.t0) / 1000), mm = String(Math.floor(el / 60)).padStart(2, '0'), ss = String(el % 60).padStart(2, '0');
-  if (state.rec) { ctx.fillStyle = '#D71921'; ctx.fillRect(56, 64, 26, 26); ctx.fillStyle = ink; ctx.fillText('REC', 96, 90); }
-  else ctx.fillText('READY', 56, 90);
-  ctx.fillText('80%', SW - 130, 90);
-  ctx.fillRect(56, 120, SW - 112, 3);
-  if (state.asking || now < state.answerUntil) {
-    ctx.fillText(state.asking ? 'LISTENING…' : 'ANSWER', 56, 200);
+  const { ctx } = tex.userData, txt = (s, x, y, font, col = INK, align = 'left') => { ctx.font = font; ctx.fillStyle = col; ctx.textAlign = align; ctx.fillText(s, x, y); };
+  ctx.fillStyle = PAPER; ctx.fillRect(0, 0, SW, SH);
+  const el = Math.floor((now - state.t0) / 1000), mmss = `${String(Math.floor(el / 60)).padStart(2, '0')}:${String(el % 60).padStart(2, '0')}`;
+  const ask = state.asking || now < state.answerUntil;
+  const title = ask ? 'ASK NOMI' : state.page === 0 ? (state.rec ? 'REC' : '今天') : state.page === 1 ? '日程' : '待办';
+  // 状态栏：左边页名（录音时常驻红点），右边时间与电量
+  let x0 = 56;
+  if (state.rec) { ctx.fillStyle = '#D71921'; ctx.fillRect(56, 64, 26, 26); x0 = 96; }
+  txt(title, x0, 90, /[A-Z]/.test(title) ? MONO(34) : CN(500, 34));
+  if (state.rec && state.page !== 0 && !ask) txt(mmss, x0 + 90, 90, MONO(34), GREY);
+  txt(`${DEMO_NOW}  80%`, SW - 56, 90, MONO(34), INK, 'right');
+  ctx.fillStyle = INK; ctx.fillRect(56, 120, SW - 112, 3);
+  let foot = '', dots = !ask;
+
+  if (ask) {
     if (state.asking) {
-      for (let i = 0; i < 40; i++) { const a = 20 + 140 * Math.abs(Math.sin(now / 160 + i * 0.7) * Math.sin(i * 0.3)); ctx.fillRect(56 + i * 21.5, 420 - a / 2, 11, a); }
+      txt('在听…', 56, 300, CN(500, 72));
+      txt('说完松开圆盘', 56, 380, CN(400, 36), GREY);
+      foot = '会结合今天的录音和日程回答';
     } else {
-      ctx.font = '500 46px "PingFang SC", sans-serif'; ctx.fillText('截止日期：下周五 11/14', 56, 320);
-      ctx.font = '400 34px "PingFang SC", sans-serif'; ctx.fillStyle = '#555'; ctx.fillText('王工在 03:12 提到，已加入待办', 56, 390);
+      txt('问：报价什么时候截止？', 56, 200, CN(400, 34), GREY);
+      txt('下周五 11/14', 56, 320, CN(500, 84));
+      txt('王工在 03:12 提到 · 产品评审', 56, 400, CN(400, 36), GREY);
+      txt('✓ 已加入待办', 56, 470, CN(400, 36));
+      foot = '点屏幕返回';
     }
-  } else if (state.rec) {
-    ctx.font = '700 220px Doto'; ctx.fillText(`${mm}:${ss}`, 40, 350);
-    for (let i = 0; i < 40; i++) {
-      const a = 12 + 110 * Math.abs(Math.sin(i * 1.7 + now / 300) * Math.cos(i * 0.45 + now / 900));
-      ctx.fillStyle = i === 39 ? '#D71921' : ink; ctx.fillRect(56 + i * 21.5, 510 - a / 2, 11, a);
-    }
+  } else if (state.page === 0 && state.rec) {
+    txt('产品评审 · 钉钉日程到点自动开录', 56, 190, CN(400, 32), GREY);
+    ctx.textAlign = 'left'; txt(mmss, 40, 400, '700 200px Doto');
+    const marked = now - state.markAt < 2000;
+    txt(marked ? `已标记 · ${mmss}` : state.note, 56, 500, CN(marked ? 500 : 400, 38), marked ? INK : GREY);
+    foot = `MARK ${state.marks} · 按住 ASK 问 Nomi`;
+  } else if (state.page === 0) {
+    const next = AGENDA.find(a => a[3] === 'next');
+    txt('NEXT · 28 MIN', 56, 180, MONO(30), GREY);
+    txt(`${next[0]} ${next[1]}`, 56, 262, CN(500, 66));
+    txt(`${next[2]} · 到点自动录音`, 56, 322, CN(400, 32), GREY);
+    ctx.fillStyle = INK; ctx.fillRect(56, 362, SW - 112, 1.5);
+    const open = TODOS.filter(t => !t.done);
+    open.slice(0, 2).forEach((t, i) => txt(`□ ${t.t}`, 56, 430 + i * 64, CN(400, 38)));
+    if (open.length > 2) txt(`还有 ${open.length - 2} 条待办 →`, 56, 560, CN(400, 30), GREY);
+    else if (!open.length) txt('今天的待办都清完了', 56, 430, CN(400, 38), GREY);
+    foot = '按住 ASK 问 Nomi';
+  } else if (state.page === 1) {
+    AGENDA.forEach(([t, name, sub, s], i) => {
+      const y = 175 + i * 112, col = s === 'done' ? GREY : INK;
+      if (s === 'next') { ctx.fillStyle = INK; ctx.fillRect(40, y - 18, SW - 80, 104); }
+      const c = s === 'next' ? PAPER : col;
+      txt(t, 56, y + 40, MONO(34), c);
+      txt(name, 220, y + 34, CN(500, 40), c);
+      txt(sub, 220, y + 74, CN(400, 28), s === 'next' ? PAPER : GREY);
+    });
+    foot = '钉钉 · 飞书日历 · 8 分钟前同步';
   } else {
-    const d = new Date(); ctx.font = '700 220px Doto';
-    ctx.fillText(`${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`, 40, 350);
-    ctx.font = '400 38px "PingFang SC", sans-serif';
-    ['→ 周五前发方案给王工', '→ 确认会议室预订', '→ 回复供应商报价'].forEach((s, i) => ctx.fillText(s, 56, 440 + i * 58));
+    TODOS.forEach((t, i) => {
+      const y = ROW0 + i * ROWH, col = t.done ? GREY : INK;
+      ctx.strokeStyle = col; ctx.lineWidth = 4; ctx.strokeRect(58, y + 6, 40, 40);
+      if (t.done) { ctx.beginPath(); ctx.moveTo(66, y + 26); ctx.lineTo(76, y + 37); ctx.lineTo(92, y + 14); ctx.stroke(); }
+      txt(t.t, 124, y + 40, CN(500, 40), col);
+      if (t.done) { ctx.fillStyle = GREY; ctx.fillRect(124, y + 26, ctx.measureText(t.t).width, 3); }
+      txt(t.src, 124, y + 86, CN(400, 28), GREY);
+    });
+    foot = '点按勾选 · 同步回钉钉待办';
   }
-  ctx.fillStyle = ink; ctx.fillRect(56, 630, SW - 112, 3);
-  ctx.font = '400 34px "Space Mono"'; ctx.fillText(`3 TODOS · ${state.marks} MARK${state.marks > 1 ? 'S' : ''}`, 56, 695);
+
+  // 页脚：提示 + 翻页圆点
+  ctx.fillStyle = INK; ctx.fillRect(56, 630, SW - 112, 3);
+  txt(foot, 56, 695, /[一-龥]/.test(foot) ? CN(400, 30) : MONO(30));
+  if (dots) for (let i = 0; i < PAGES; i++) {
+    ctx.beginPath(); ctx.arc(SW - 56 - 12 - (PAGES - 1 - i) * 40, 684, 11, 0, Math.PI * 2);
+    ctx.fillStyle = INK; ctx.strokeStyle = INK; ctx.lineWidth = 3;
+    i === state.page ? ctx.fill() : ctx.stroke();
+  }
+  ctx.textAlign = 'left';
   tex.needsUpdate = true;
+}
+// 屏幕触控：uv → 画布坐标；返回 true 表示屏幕内容变了
+function touchScreen(u, v, dx) {
+  const x = u * SW, y = (1 - v) * SH, now = performance.now();
+  if (now < state.answerUntil) { state.answerUntil = 0; return true; }
+  if (Math.abs(dx) > 24) { state.page = (state.page + (dx < 0 ? 1 : PAGES - 1)) % PAGES; return true; }
+  if (state.page === 2 && y > ROW0 - 20 && y < ROW0 + TODOS.length * ROWH - 20 && x < SW * 0.8) {
+    const t = TODOS[Math.floor((y - ROW0 + 20) / ROWH)]; t.done = !t.done; return true;
+  }
+  if (state.page === 0 && !state.rec && y > 380 && y < 600) { state.page = 2; return true; }
+  if (state.page === 0 && !state.rec && y > 140 && y < 370) { state.page = 1; return true; }
+  state.page = (state.page + (x > SW / 2 ? 1 : PAGES - 1)) % PAGES; return true;
 }
 
 // ---------- 姿态 ----------
@@ -730,10 +805,10 @@ if (PT) {
   exInput.oninput = () => setExplode(exInput.value / 100);
 
   const recBtn = document.getElementById('recBtn');
-  const setRec = on => { state.rec = on; if (on) state.t0 = performance.now(); recBtn.textContent = on ? '● REC ON' : '○ REC OFF'; recBtn.classList.toggle('rec', on); };
+  const setRec = on => { state.rec = on; state.page = 0; if (on) state.t0 = performance.now(); recBtn.textContent = on ? '● REC ON' : '○ REC OFF'; recBtn.classList.toggle('rec', on); };
   recBtn.onclick = () => setRec(!state.rec);
   let markPress = 0;
-  const mark = () => { state.marks++; markPress = performance.now(); };
+  const mark = () => { state.marks++; markPress = state.markAt = performance.now(); if (state.rec) state.page = 0; lastScreen = 0; };
   document.getElementById('markBtn').onclick = mark;
   document.getElementById('shotBtn').onclick = () => {
     renderer.render(scene, camera);
@@ -745,20 +820,22 @@ if (PT) {
     const r = renderer.domElement.getBoundingClientRect();
     ptr.set((e.clientX - r.left) / r.width * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
     ray.setFromCamera(ptr, camera);
-    const hit = ray.intersectObjects([D.recToggle, D.markMesh, D.askBtn], false)[0];
-    return hit && hit.object.userData.act;
+    return ray.intersectObjects([D.recToggle, D.markMesh, D.askBtn, D.screen], false)[0];
   };
+  let touch = null;   // 屏幕上按下的位置，松手时判断是点按还是滑动
   renderer.domElement.addEventListener('pointermove', e => renderer.domElement.style.cursor = pick(e) ? 'pointer' : 'grab');
   renderer.domElement.addEventListener('pointerdown', e => {
-    const a = pick(e); if (!a) return;
+    const hit = pick(e), a = hit && hit.object.userData.act; if (!a) return;
     controls.enabled = false;
+    if (a === 'screen') touch = { x: e.clientX, uv: hit.uv };
     if (a === 'rec') setRec(!state.rec);
     if (a === 'mark') mark();
     if (a === 'ask') state.asking = true;
   });
-  addEventListener('pointerup', () => {
+  addEventListener('pointerup', e => {
     controls.enabled = true;
-    if (state.asking) { state.asking = false; state.answerUntil = performance.now() + 5000; }
+    if (touch) { touchScreen(touch.uv.x, touch.uv.y, e.clientX - touch.x); touch = null; lastScreen = 0; }
+    if (state.asking) { state.asking = false; state.answerUntil = performance.now() + 8000; }
   });
   renderer.domElement.addEventListener('dblclick', e => { if (pick(e)) return; setExplode(exTarget > 0.5 ? 0 : 1); });
 
